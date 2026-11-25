@@ -4,17 +4,27 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Pembaca Surat Otomatis</title>
-    <meta name="description" content="Aplikasi pembaca dan ekstraksi metadata surat resmi otomatis berbasis Material 3 dan Gemini 2.5 Flash." />
+    <meta name="description" content="Aplikasi pembaca dan ekstraksi informasi surat otomatis menggunakan Gemini AI dengan tampilan split-screen, arsip digital, dan export CSV." />
     <meta property="og:title" content="Pembaca Surat Otomatis" />
-    <meta property="og:description" content="Aplikasi pembaca dan ekstraksi metadata surat resmi otomatis berbasis Material 3 dan Gemini 2.5 Flash." />
+    <meta property="og:description" content="Aplikasi pembaca dan ekstraksi informasi surat otomatis menggunakan Gemini AI dengan tampilan split-screen, arsip digital, dan export CSV." />
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400..700;1,9..40,400..700&family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@500;600;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <script>
+      (function () {
+        try {
+          var saved = localStorage.getItem('pembaca_surat_theme');
+          var isDark = saved ? saved === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+          if (isDark) document.documentElement.classList.add('dark');
+        } catch (e) {}
+      })();
+    </script>
   </head>
-  <body class="bg-[#F6F8FC] text-[#111827] antialiased selection:bg-indigo-100 selection:text-indigo-900">
+  <body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 antialiased selection:bg-blue-100 dark:selection:bg-blue-900/50 selection:text-blue-900 dark:selection:text-blue-100 transition-colors">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
+

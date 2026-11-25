@@ -1,281 +1,311 @@
-import { useState, useEffect, type FormEvent } from 'react';
-import { Copy, RotateCcw, Save } from 'lucide-react';
-import {
-  JENIS_SURAT_OPTIONS,
-  type JenisSurat,
-  type SuratFormValues,
-  validateSuratForm,
-} from '../utils/surat';
+import { useState } from 'react';
+import type { FormEvent } from 'react';
+import { Archive, Check, Copy, Loader2, RotateCcw } from 'lucide-react';
+import type { ExtractedLetterData, JenisSurat } from '../types/letter';
+import { formatWhatsAppSummary, JENIS_SURAT_OPTIONS } from '../utils/letterUtils';
 
 interface ExtractionFormProps {
-  initialValues: SuratFormValues;
-  fileKey: string;
-  onSave: (values: SuratFormValues) => void;
-  onCopy: (values: SuratFormValues) => void;
+  formData: ExtractedLetterData;
+  isAnalyzing: boolean;
+  onChange: (updated: ExtractedLetterData) => void;
+  onSaveToArchive: (data: ExtractedLetterData) => void;
   onReset: () => void;
 }
 
 export function ExtractionForm({
-  initialValues,
-  fileKey,
-  onSave,
-  onCopy,
+  formData,
+  isAnalyzing,
+  onChange,
+  onSaveToArchive,
   onReset,
 }: ExtractionFormProps) {
-  const [values, setValues] = useState<SuratFormValues>(initialValues);
-  const [errors, setErrors] = useState<Partial<Record<keyof SuratFormValues, string>>>({});
+  const [copied, setCopied] = useState(false);
+  const [validationError, setValidationError] = useState<string | null>(null);
 
-  useEffect(() => {
-    setValues(initialValues);
-    setErrors({});
-  }, [initialValues, fileKey]);
-
-  const updateField = <K extends keyof SuratFormValues>(
-    field: K,
-    value: SuratFormValues[K],
+  const updateField = <K extends keyof ExtractedLetterData>(
+    key: K,
+    value: ExtractedLetterData[K],
   ) => {
-    setValues((prev) => ({ ...prev, [field]: value }));
-    if (errors[field]) {
-      setErrors((prev) => {
-        const next = { ...prev };
-        delete next[field];
-        return next;
-      });
+    if (validationError) setValidationError(null);
+    onChange({ ...formData, [key]: value });
+  };
+
+  const handleCopyInfo = async () => {
+    const text = formatWhatsAppSummary(formData);
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    } catch {
+      // Fallback for restricted clipboard contexts
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
     }
   };
 
-  const handleSubmit = (e: FormEvent) => {
-    e.preventDefault();
-    const validationErrors = validateSuratForm(values);
-    if (Object.keys(validationErrors).length > 0) {
-      setErrors(validationErrors);
+  const handleSubmit = (event: FormEvent) => {
+    event.preventDefault();
+    if (!formData.perihal.trim() && !formData.nomorSurat.trim() && !formData.pengirim.trim()) {
+      setValidationError(
+        'Mohon isi minimal Perihal, Nomor Surat, atau Pengirim sebelum menyimpan ke arsip.',
+      );
       return;
     }
-    onSave({
-      ...values,
-      lampiran: values.lampiran.trim() || '-',
-    });
+    setValidationError(null);
+    onSaveToArchive(formData);
   };
-
-  const inputBase =
-    'mt-1.5 w-full rounded-xl border bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-600/20 focus:border-indigo-700';
 
   return (
     <form
       onSubmit={handleSubmit}
-      noValidate
-      className="flex flex-col rounded-2xl border border-slate-200 bg-white p-5 sm:p-6"
+      className="flex flex-col rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden h-full transition-colors"
     >
-      <div className="border-b border-slate-100 pb-4">
-        <h2 className="font-display text-lg font-bold text-slate-900">
-          Form Hasil Ekstraksi Surat
-        </h2>
-        <p className="mt-1 text-xs text-slate-500">
-          Seluruh kolom dapat disunting secara manual sebelum disalin atau disimpan ke arsip.
-        </p>
+      <div className="flex items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 px-5 py-3">
+        <div>
+          <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+            Form Hasil Ekstraksi Surat
+          </h2>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+            Periksa dan sunting data di bawah sebelum disimpan ke arsip.
+          </p>
+        </div>
+        {isAnalyzing && (
+          <span className="inline-flex items-center gap-1.5 text-xs font-medium text-blue-700 dark:text-blue-400 whitespace-nowrap">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+            <span>Memproses AI</span>
+          </span>
+        )}
       </div>
 
-      <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div className="sm:col-span-2">
-          <label
-            htmlFor="field-jenis-surat"
-            className="block text-xs font-semibold text-slate-700"
+      <div className="flex-1 p-5 space-y-4">
+        {validationError && (
+          <div
+            role="alert"
+            className="rounded-lg border border-amber-200 dark:border-amber-900/60 bg-amber-50 dark:bg-amber-950/40 px-3.5 py-2.5 text-xs font-medium text-amber-900 dark:text-amber-200"
           >
-            Jenis Surat
-          </label>
-          <select
-            id="field-jenis-surat"
-            value={values.jenisSurat}
-            onChange={(e) => updateField('jenisSurat', e.target.value as JenisSurat)}
-            className={`${inputBase} border-slate-200`}
-          >
-            {JENIS_SURAT_OPTIONS.map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
-          </select>
+            {validationError}
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label
+              htmlFor="field-jenis-surat"
+              className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5"
+            >
+              Jenis Surat
+            </label>
+            <select
+              id="field-jenis-surat"
+              value={formData.jenisSurat}
+              disabled={isAnalyzing}
+              onChange={(e) => updateField('jenisSurat', e.target.value as JenisSurat)}
+              className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20 disabled:bg-slate-50 dark:disabled:bg-slate-800/50 disabled:text-slate-400"
+            >
+              {JENIS_SURAT_OPTIONS.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label
+              htmlFor="field-tanggal-surat"
+              className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5"
+            >
+              Tanggal Surat{' '}
+              <span className="font-normal text-slate-400 dark:text-slate-500">(DD-MM-YYYY)</span>
+            </label>
+            <input
+              id="field-tanggal-surat"
+              type="text"
+              value={formData.tanggalSurat}
+              disabled={isAnalyzing}
+              placeholder="Contoh: 16-11-2026"
+              onChange={(e) => updateField('tanggalSurat', e.target.value)}
+              className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-sm font-mono tabular-nums text-slate-900 dark:text-slate-100 placeholder:font-sans placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20 disabled:bg-slate-50 dark:disabled:bg-slate-800/50 disabled:text-slate-400"
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label
+              htmlFor="field-nomor-surat"
+              className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5"
+            >
+              Nomor Surat
+            </label>
+            <input
+              id="field-nomor-surat"
+              type="text"
+              value={formData.nomorSurat}
+              disabled={isAnalyzing}
+              placeholder="Contoh: 045/UND/XI/2026"
+              onChange={(e) => updateField('nomorSurat', e.target.value)}
+              className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-sm font-mono text-slate-900 dark:text-slate-100 placeholder:font-sans placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20 disabled:bg-slate-50 dark:disabled:bg-slate-800/50 disabled:text-slate-400"
+            />
+          </div>
+
+          <div>
+            <label
+              htmlFor="field-lampiran"
+              className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5"
+            >
+              Lampiran
+            </label>
+            <input
+              id="field-lampiran"
+              type="text"
+              value={formData.lampiran}
+              disabled={isAnalyzing}
+              placeholder='Isi "-" jika tidak ada'
+              onChange={(e) => updateField('lampiran', e.target.value)}
+              className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20 disabled:bg-slate-50 dark:disabled:bg-slate-800/50 disabled:text-slate-400"
+            />
+          </div>
         </div>
 
         <div>
-          <label
-            htmlFor="field-nomor-surat"
-            className="block text-xs font-semibold text-slate-700"
-          >
-            Nomor Surat
-          </label>
-          <input
-            id="field-nomor-surat"
-            type="text"
-            value={values.nomorSurat}
-            onChange={(e) => updateField('nomorSurat', e.target.value)}
-            placeholder="Contoh: 045/UND/XI/2026"
-            className={`${inputBase} border-slate-200 font-mono text-[13px]`}
-          />
-        </div>
-
-        <div>
-          <label
-            htmlFor="field-tanggal-surat"
-            className="block text-xs font-semibold text-slate-700"
-          >
-            Tanggal Surat (DD-MM-YYYY)
-          </label>
-          <input
-            id="field-tanggal-surat"
-            type="text"
-            value={values.tanggalSurat}
-            onChange={(e) => updateField('tanggalSurat', e.target.value)}
-            placeholder="DD-MM-YYYY"
-            className={`${inputBase} border-slate-200 font-mono text-[13px] tabular-nums`}
-          />
-        </div>
-
-        <div className="sm:col-span-2">
           <label
             htmlFor="field-perihal"
-            className="block text-xs font-semibold text-slate-700"
+            className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5"
           >
-            Perihal / Judul Surat <span className="text-red-600">*</span>
+            Perihal / Judul Surat
           </label>
           <input
             id="field-perihal"
             type="text"
-            value={values.perihal}
+            value={formData.perihal}
+            disabled={isAnalyzing}
+            placeholder="Perihal atau judul utama surat"
             onChange={(e) => updateField('perihal', e.target.value)}
-            placeholder="Masukkan perihal atau judul utama surat"
-            aria-invalid={Boolean(errors.perihal)}
-            className={`${inputBase} ${
-              errors.perihal ? 'border-red-500' : 'border-slate-200'
-            }`}
+            className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20 disabled:bg-slate-50 dark:disabled:bg-slate-800/50 disabled:text-slate-400"
           />
-          {errors.perihal && (
-            <p className="mt-1 text-xs text-red-600">{errors.perihal}</p>
-          )}
         </div>
 
-        <div className="sm:col-span-2">
-          <label
-            htmlFor="field-pengirim"
-            className="block text-xs font-semibold text-slate-700"
-          >
-            Pengirim / Instansi Asal <span className="text-red-600">*</span>
-          </label>
-          <input
-            id="field-pengirim"
-            type="text"
-            value={values.pengirim}
-            onChange={(e) => updateField('pengirim', e.target.value)}
-            placeholder="Nama instansi, perusahaan, atau pejabat pengirim"
-            aria-invalid={Boolean(errors.pengirim)}
-            className={`${inputBase} ${
-              errors.pengirim ? 'border-red-500' : 'border-slate-200'
-            }`}
-          />
-          {errors.pengirim && (
-            <p className="mt-1 text-xs text-red-600">{errors.pengirim}</p>
-          )}
-        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label
+              htmlFor="field-pengirim"
+              className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5"
+            >
+              Pengirim / Instansi Asal
+            </label>
+            <input
+              id="field-pengirim"
+              type="text"
+              value={formData.pengirim}
+              disabled={isAnalyzing}
+              placeholder="Nama instansi atau pengirim"
+              onChange={(e) => updateField('pengirim', e.target.value)}
+              className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20 disabled:bg-slate-50 dark:disabled:bg-slate-800/50 disabled:text-slate-400"
+            />
+          </div>
 
-        <div>
-          <label
-            htmlFor="field-tujuan"
-            className="block text-xs font-semibold text-slate-700"
-          >
-            Tujuan / Penerima
-          </label>
-          <input
-            id="field-tujuan"
-            type="text"
-            value={values.tujuan}
-            onChange={(e) => updateField('tujuan', e.target.value)}
-            placeholder="Pihak penerima surat"
-            className={`${inputBase} border-slate-200`}
-          />
+          <div>
+            <label
+              htmlFor="field-tujuan"
+              className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5"
+            >
+              Tujuan / Penerima
+            </label>
+            <input
+              id="field-tujuan"
+              type="text"
+              value={formData.tujuan}
+              disabled={isAnalyzing}
+              placeholder="Pihak yang dituju pada surat"
+              onChange={(e) => updateField('tujuan', e.target.value)}
+              className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20 disabled:bg-slate-50 dark:disabled:bg-slate-800/50 disabled:text-slate-400"
+            />
+          </div>
         </div>
 
         <div>
-          <label
-            htmlFor="field-lampiran"
-            className="block text-xs font-semibold text-slate-700"
-          >
-            Lampiran
-          </label>
-          <input
-            id="field-lampiran"
-            type="text"
-            value={values.lampiran}
-            onChange={(e) => updateField('lampiran', e.target.value)}
-            placeholder="-"
-            className={`${inputBase} border-slate-200`}
-          />
-        </div>
-
-        <div className="sm:col-span-2">
           <label
             htmlFor="field-ringkasan"
-            className="block text-xs font-semibold text-slate-700"
+            className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5"
           >
-            Ringkasan Isi Surat <span className="text-red-600">*</span>
+            Ringkasan Isi Surat
           </label>
           <textarea
             id="field-ringkasan"
             rows={3}
-            value={values.ringkasan}
+            value={formData.ringkasan}
+            disabled={isAnalyzing}
+            placeholder="2-3 kalimat padat yang menjelaskan inti surat..."
             onChange={(e) => updateField('ringkasan', e.target.value)}
-            placeholder="Ringkasan padat 2–3 kalimat mengenai inti surat"
-            aria-invalid={Boolean(errors.ringkasan)}
-            className={`${inputBase} resize-y ${
-              errors.ringkasan ? 'border-red-500' : 'border-slate-200'
-            }`}
+            className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 leading-relaxed focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20 disabled:bg-slate-50 dark:disabled:bg-slate-800/50 disabled:text-slate-400"
           />
-          {errors.ringkasan && (
-            <p className="mt-1 text-xs text-red-600">{errors.ringkasan}</p>
-          )}
         </div>
 
-        <div className="sm:col-span-2">
+        <div>
           <label
             htmlFor="field-poin-penting"
-            className="block text-xs font-semibold text-slate-700"
+            className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5"
           >
             Poin Penting / Tindak Lanjut
           </label>
           <textarea
             id="field-poin-penting"
             rows={3}
-            value={values.poinPenting}
+            value={formData.poinPenting}
+            disabled={isAnalyzing}
+            placeholder="Jadwal acara, tenggat waktu, atau instruksi khusus..."
             onChange={(e) => updateField('poinPenting', e.target.value)}
-            placeholder="Jadwal acara, tenggat waktu, lokasi, atau instruksi khusus"
-            className={`${inputBase} resize-y border-slate-200`}
+            className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 leading-relaxed focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20 disabled:bg-slate-50 dark:disabled:bg-slate-800/50 disabled:text-slate-400"
           />
         </div>
       </div>
 
-      <div className="mt-6 flex flex-wrap items-center justify-end gap-2.5 border-t border-slate-100 pt-5">
-        <button
-          type="button"
-          onClick={onReset}
-          className="inline-flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 whitespace-nowrap focus-visible:outline-2 focus-visible:outline-indigo-700"
-        >
-          <RotateCcw className="h-4 w-4" aria-hidden="true" />
-          <span>Batal / Reset</span>
-        </button>
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 px-5 py-3.5">
+        <div className="flex flex-wrap items-center gap-2.5">
+          <button
+            type="button"
+            onClick={handleCopyInfo}
+            disabled={isAnalyzing}
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white transition-colors disabled:opacity-50 whitespace-nowrap shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+          >
+            {copied ? (
+              <>
+                <Check className="h-4 w-4 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+                <span className="text-emerald-700 dark:text-emerald-300">Tersalin!</span>
+              </>
+            ) : (
+              <>
+                <Copy className="h-4 w-4 text-slate-600 dark:text-slate-300" aria-hidden="true" />
+                <span>Salin Info Surat</span>
+              </>
+            )}
+          </button>
 
-        <button
-          type="button"
-          onClick={() => onCopy(values)}
-          className="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-800 transition-colors hover:bg-slate-50 whitespace-nowrap focus-visible:outline-2 focus-visible:outline-indigo-700"
-        >
-          <Copy className="h-4 w-4 text-slate-600" aria-hidden="true" />
-          <span>Salin Info Surat</span>
-        </button>
+          <button
+            type="button"
+            onClick={onReset}
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white transition-colors whitespace-nowrap shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+          >
+            <RotateCcw className="h-4 w-4 text-slate-600 dark:text-slate-300" aria-hidden="true" />
+            <span>Batal / Reset</span>
+          </button>
+        </div>
 
         <button
           type="submit"
-          className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-700 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-indigo-800 whitespace-nowrap focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-700"
+          disabled={isAnalyzing}
+          className="inline-flex items-center gap-2 rounded-lg bg-blue-700 hover:bg-blue-800 dark:bg-blue-600 dark:hover:bg-blue-500 px-5 py-2 text-sm font-semibold text-white transition-colors disabled:opacity-50 whitespace-nowrap shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-900"
         >
-          <Save className="h-4 w-4" aria-hidden="true" />
+          <Archive className="h-4 w-4" aria-hidden="true" />
           <span>Simpan ke Arsip</span>
         </button>
       </div>

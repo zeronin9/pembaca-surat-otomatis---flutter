@@ -1,8 +1,6 @@
 {
   "name": "Pembaca Surat Otomatis",
-  "description": "Aplikasi pembaca dan ekstraksi metadata surat resmi otomatis berbasis Material 3 dan Gemini 2.5 Flash dengan preview dokumen, arsip lokal, dan ekspor CSV.",
+  "description": "Aplikasi pembaca dan ekstraksi informasi surat otomatis menggunakan Gemini AI dengan tampilan split-screen, arsip digital, dan export CSV.",
   "requestFramePermissions": [],
-  "majorCapabilities": [
-    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
-  ]
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
